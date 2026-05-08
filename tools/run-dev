@@ -229,9 +229,11 @@ def start_webpack_watcher() -> "subprocess.Popen[bytes]":
     webpack_cmd = ["./tools/webpack", "--watch", f"--port={webpack_port}"]
     if options.minify:
         webpack_cmd.append("--minify")
-    if options.interface is None:
-        # If interface is None and we're listening on all ports, we also need
-        # to disable the webpack host check so that webpack will serve assets.
+    if options.interface is None or options.interface == "0.0.0.0":
+        # If we're listening on all interfaces (either implicitly via the
+        # default, or explicitly via --interface=0.0.0.0), we also need
+        # to disable the webpack host check so that webpack will serve
+        # assets to clients arriving via non-localhost hostnames.
         webpack_cmd.append("--disable-host-check")
     if options.interface:
         webpack_cmd.append(f"--host={options.interface}")
