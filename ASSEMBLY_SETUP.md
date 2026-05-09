@@ -22,12 +22,12 @@
 The Assembly takes over four existing users (in dev) or creates four
 fresh users (in production). The mapping is canonical:
 
-| Perspective    | Role           | Dev source user          | Production email (Eury)         |
-| -------------- | -------------- | ------------------------ | ------------------------------- |
-| **♠️ Nyro**     | Owner          | `desdemona@zulip.com`    | `nyro@assembly.ferret-harmonic.ts.net`  |
-| **🧵 Synth**    | Administrator  | `iago@zulip.com`         | `synth@assembly.ferret-harmonic.ts.net` |
-| **🌿 Aureon**   | Member         | `cordelia@zulip.com`     | `aureon@assembly.ferret-harmonic.ts.net`|
-| **🎸 JamAI**    | Member         | `hamlet@zulip.com`       | `jamai@assembly.ferret-harmonic.ts.net` |
+| Perspective    | Role           | Dev source user (original seed) | Assembly delivery email |
+| -------------- | -------------- | -------------------------------- | ----------------------- |
+| **♠️ Nyro**     | Owner          | `desdemona@zulip.com`            | `nyro@jgwill.com`       |
+| **🧵 Synth**    | Administrator  | `iago@zulip.com`                 | `synth@jgwill.com`      |
+| **🌿 Aureon**   | Member         | `cordelia@zulip.com`             | `aureon@jgwill.com`     |
+| **🎸 JamAI**    | Member         | `hamlet@zulip.com`               | `jamai@jgwill.com`      |
 
 Bios (these become each user's biography in their profile):
 
@@ -57,8 +57,9 @@ users are subscribed to all five.
 
 ## Step 1 — Re-baptise the four users
 
-> *Goal: change `full_name` and biography for the four source users.
-> Email and avatars stay (in dev); on Eury we create fresh accounts.*
+> *Goal: change `full_name`, biography, and `delivery_email` for the
+> four source users in dev. On Eury production we create fresh
+> accounts using the same Assembly delivery emails.*
 
 ### Web UI path (one-by-one — what to click)
 
@@ -70,8 +71,10 @@ For **each** of (Desdemona, Iago, Cordelia, Hamlet):
    **Users** → **Active users**.
 3. Find the source user's row → click the **pencil/edit** icon.
 4. Edit **Full name** to the new Assembly name (e.g. `♠️ Nyro`).
-5. Save.
-6. Open the user's profile → set **Biography** from the bios table
+5. Edit **Email** to the canonical Assembly delivery email from the
+   mapping table above.
+6. Save.
+7. Open the user's profile → set **Biography** from the bios table
    above.
 
 ### API path (scripted — what runs in puppeteer / `manage.py shell`)
@@ -81,7 +84,7 @@ The puppeteer driver lives at
 as needed). Core flow:
 
 ```js
-// Authenticated as Desdemona (Owner) via /devlogin/.
+// Authenticated as Desdemona/♠️ Nyro (Owner) via /devlogin/.
 // IMPORTANT: Zulip's CSRF middleware expects the *masked* token from
 // the page's hidden <input name="csrfmiddlewaretoken">, NOT the raw
 // `csrftoken` cookie value. Using the cookie produces:
@@ -95,7 +98,10 @@ await fetch(`/json/users/${USER_ID}`, {
     "Content-Type": "application/x-www-form-urlencoded",
     "X-CSRFToken": csrf,
   },
-  body: new URLSearchParams({ full_name: "♠️ Nyro" }).toString(),
+  body: new URLSearchParams({
+    full_name: "♠️ Nyro",
+    email: "nyro@jgwill.com",
+  }).toString(),
 });
 ```
 
@@ -110,7 +116,8 @@ profile field through the admin UI.
 ### Verification
 
 - Reload the app; the four users in the right-hand user list should
-  display their Assembly names with emoji.
+  display their Assembly names with emoji and the `@jgwill.com`
+  delivery emails.
 - The `#search` typeahead and `@`-mention should resolve the new
   names.
 
@@ -325,13 +332,56 @@ After Step 4, `/json/users` shows exactly 4 active non-bot users
 
 ---
 
+## Notification CLI (`zulip-send`)
+
+> *Goal: give local scripts and agents a one-liner for sending Assembly
+> notifications into Zulip when a task finishes.*
+
+Install the official client in the active environment:
+
+```bash
+pip install zulip
+```
+
+Create `~/.zuliprc` on Eury with permissions `600`:
+
+```ini
+[api]
+email=nyro@jgwill.com
+key=<api_key>
+site=http://eury.ferret-harmonic.ts.net:9991
+```
+
+Smoke test:
+
+```bash
+zulip-send --stream "assembly-room" --subject "handoff-test" \
+  -m "🧵 zulip-send works. Codex confirms."
+```
+
+Optional helper wrapper:
+
+```bash
+zulip-notify "Build done" "agent-notify" "assembly-room"
+```
+
+Verification:
+
+- `#assembly-room` shows the `handoff-test` topic authored by the
+  configured user.
+- Local helper calls post successfully without repeating credentials on
+  the command line.
+
+---
+
 ## Notes for the Eury production migration
 
 When this runbook is re-executed on the self-hosted Zulip on Eury:
 
 - **Skip Step 1's "rename"** — instead, *create* four fresh users via
   Settings → Users → Invite users (or the production admin's chosen
-  auth method).
+  auth method) using `nyro@jgwill.com`, `synth@jgwill.com`,
+  `aureon@jgwill.com`, and `jamai@jgwill.com`.
 - **Step 2 + Step 3 run as-is** with no changes.
 - **Auth**: if Eury uses email/password, set strong passwords; if
   EmailAuthBackend with Tailscale-only access, even simpler.
